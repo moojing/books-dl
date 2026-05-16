@@ -4,8 +4,10 @@ gem 'http'
 gem 'nokogiri'
 gem 'rubyzip', '>= 1.0.0'
 
-# for development
-gem 'awesome_print'
-gem 'byebug'
-gem 'rspec'
 gem 'selenium-webdriver'
+
+group :development do
+  gem 'awesome_print'
+  gem 'byebug'
+  gem 'rspec'
+end
