@@ -72,19 +72,32 @@ module BooksDL
           Referer: 'https://viewer-ebook.books.com.tw/viewer/epub/web/?book_uni_id=E050017049_reflowable_normal',
         }
 
-        # remove old cookies
-        current_cookie.reject! { |key| %w[CmsToken redirect_uri normal_redirect_uri DownloadToken].include?(key) }
+        # remove old DownloadToken but keep CmsToken if exists
+        current_cookie.reject! { |key| %w[redirect_uri normal_redirect_uri DownloadToken].include?(key) }
         puts '註冊 Fake device 中...'
         post(DEVICE_REG_URL, data, headers)
 
         puts '透過 OAuth 取得 CmsToken...'
         resp = get(OAUTH_URL)
-        login_uri = JSON.parse(resp.body.to_s).fetch('login_uri')
-        code = get(login_uri).headers['Location'].split('&code=').last
-        get("#{OAUTH_ENDPOINT_URL}#{code}")
+        parsed_oauth = JSON.parse(resp.body.to_s)
+        puts "OAUTH_URL response: #{parsed_oauth.inspect}"
+        login_uri = parsed_oauth.fetch('login_uri')
+        puts "\n請在 Chrome 瀏覽器中開啟以下網址："
+        puts login_uri
+        puts "\n⚠️  網址會自動跳轉到 login.html?...&code=XXXXX 的網址"
+        puts "    請複製那個含有 code= 的網址貼到這裡按 Enter："
+        redirect_url = $stdin.gets&.chomp
+        code = redirect_url&.split('&code=')&.last&.split('&')&.first
+        code ||= redirect_url&.split('?code=')&.last&.split('&')&.first
+        raise "無法取得 OAuth code，請確認網址含有 code= 參數。你貼的是：#{redirect_url}" if code.nil? || code.empty? || code.start_with?('http')
+        puts "OAuth code: #{code}"
+        oauth_resp = get("#{OAUTH_ENDPOINT_URL}#{code}")
+        puts "MemberLogin response: #{oauth_resp.body.to_s}"
 
         resp = get("#{BOOK_DL_URL}?book_uni_id=#{book_id}&t=#{Time.now.to_i}")
-        OpenStruct.new(JSON.parse(resp.body.to_s))
+        parsed = JSON.parse(resp.body.to_s)
+        puts "BookDownLoadURL response: #{parsed.inspect}"
+        OpenStruct.new(parsed)
       end
     end
 
@@ -127,7 +140,13 @@ module BooksDL
     private
 
     def load_existed_cookies
-      @current_cookie = JSON.parse(File.read(COOKIE_FILE_NAME))
+      data = JSON.parse(File.read(COOKIE_FILE_NAME))
+      # 支援 Cookie-Editor 匯出的陣列格式
+      if data.is_a?(Array)
+        @current_cookie = data.each_with_object({}) { |c, h| h[c['name']] = c['value'] }
+      else
+        @current_cookie = data
+      end
     rescue StandardError
       @current_cookie = {}
     end
@@ -154,7 +173,7 @@ module BooksDL
 
     def post(url, data = {}, headers = {})
       headers = build_headers({ Cookie: cookie }, headers)
-      response = HTTP.headers(headers).post(url, data)
+      response = HTTP.headers(headers).post(url, **data)
       save_cookie(response)
 
       response
@@ -208,6 +227,43 @@ module BooksDL
       puts '請輸入認證碼 (captcha.png，不分大小寫)：'
 
       gets.chomp
+    end
+
+    def fetch_oauth_code_via_browser(login_uri)
+      options = Selenium::WebDriver::Chrome::Options.new
+      # 隱藏 Selenium 特徵，避免被 Cloudflare 偵測
+      options.add_argument('--disable-blink-features=AutomationControlled')
+
+      driver = Selenium::WebDriver.for(:chrome, options: options)
+
+      # 注入 JS 隱藏 navigator.webdriver
+      driver.execute_cdp('Page.addScriptToEvaluateOnNewDocument',
+        source: "Object.defineProperty(navigator, 'webdriver', {get: () => undefined})"
+      )
+
+      begin
+        puts "開啟瀏覽器進行 OAuth 授權..."
+        driver.navigate.to(login_uri)
+
+        puts "請在瀏覽器中完成登入。"
+        puts "登入成功後，瀏覽器網址列會變成 viewer-ebook.books.com.tw 開頭的網址。"
+        puts "請把那個網址複製貼上到這裡，然後按 Enter："
+        redirect_url = STDIN.gets.chomp
+
+        code = redirect_url.split('&code=').last&.split('&')&.first
+        code ||= redirect_url.split('?code=').last&.split('&')&.first
+        raise '無法取得 OAuth code' if code.nil? || code.empty?
+
+        # 順便把瀏覽器的 cookie 存起來供後續使用
+        driver.manage.all_cookies.each do |c|
+          current_cookie[c[:name]] = c[:value]
+        end
+        File.write(COOKIE_FILE_NAME, JSON.pretty_generate(current_cookie))
+
+        code
+      ensure
+        driver.quit if driver
+      end
     end
 
     require 'selenium-webdriver'

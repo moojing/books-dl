@@ -17,9 +17,9 @@ module BooksDL
           match = url.match(%r{\Ahttps?://(.*?/){3}.*?(?<rest_part>/.+)\z})
           raise ArgumentError, "unexpected download url format: #{url}" unless match && match[:rest_part]
 
-          CGI.unescape(match[:rest_part])
+          URI.decode_www_form_component(match[:rest_part])
         else
-          CGI.unescape(url.start_with?("/") ? url : "/#{url}")
+          URI.decode_www_form_component(url.start_with?("/") ? url : "/#{url}")
         end
 
       puts "[DEBUG] file_path for key = #{file_path}"

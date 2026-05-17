@@ -83,7 +83,7 @@ module BooksDL
       files = book[:files]
       filename = "#{book_id}_#{title}.epub"
 
-      ::Zip::File.open(filename, ::Zip::File::CREATE) do |zipfile|
+      ::Zip::File.open(filename, create: true) do |zipfile|
         files.each do |file|
           zipfile.get_output_stream(file.path) { |zip| zip.write(file.content) }
         end

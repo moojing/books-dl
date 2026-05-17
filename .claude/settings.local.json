@@ -5,7 +5,8 @@
       "Bash(bundle install:*)",
       "Bash(ruby --version)",
       "Bash(/Users/mujingtsai/.rbenv/shims/ruby --version)",
-      "Bash(/Users/mujingtsai/.rbenv/versions/3.3.8/bin/ruby --version)"
+      "Bash(/Users/mujingtsai/.rbenv/versions/3.3.8/bin/ruby --version)",
+      "Bash(ruby main.rb)"
     ]
   }
 }
