@@ -80,7 +80,18 @@ module BooksDL
         puts '透過 OAuth 取得 CmsToken...'
         resp = get(OAUTH_URL)
         parsed_oauth = JSON.parse(resp.body.to_s)
-        puts "OAUTH_URL response: #{parsed_oauth.inspect}"
+
+        # 如果是重複登入錯誤，清掉舊 CmsToken 重試一次
+        if parsed_oauth['error_code'] == 'id_err_207'
+          puts '偵測到重複登入，清除舊 session 重試...'
+          current_cookie.delete('CmsToken')
+          current_cookie.delete('cmsToken')
+          save_cookie_to_file
+          resp = get(OAUTH_URL)
+          parsed_oauth = JSON.parse(resp.body.to_s)
+          puts "重試 OAUTH_URL response: #{parsed_oauth.inspect}"
+        end
+
         login_uri = parsed_oauth.fetch('login_uri')
         puts "\n請在 Chrome 瀏覽器中開啟以下網址："
         puts login_uri
@@ -97,6 +108,11 @@ module BooksDL
         resp = get("#{BOOK_DL_URL}?book_uni_id=#{book_id}&t=#{Time.now.to_i}")
         parsed = JSON.parse(resp.body.to_s)
         puts "BookDownLoadURL response: #{parsed.inspect}"
+
+        if parsed['error_code']
+          raise "BookDownLoadURL 失敗：#{parsed['error_message']}，請重新執行程式。"
+        end
+
         OpenStruct.new(parsed)
       end
     end
@@ -156,6 +172,10 @@ module BooksDL
         username = gets.chomp
       password = STDIN.getpass('請輸入密碼:').chomp
       [username, password]
+    end
+
+    def save_cookie_to_file
+      File.open(COOKIE_FILE_NAME, 'w') { |f| f.write(JSON.pretty_generate(current_cookie)) }
     end
 
     def get(url, headers = {})

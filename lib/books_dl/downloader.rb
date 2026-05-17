@@ -2,6 +2,8 @@ require 'zip'
 
 module BooksDL
   class Downloader
+    DOWNLOAD_DIR = 'downloads'.freeze
+
     attr_reader :api, :book, :book_id, :info
 
     def initialize(book_id)
@@ -14,10 +16,16 @@ module BooksDL
           ::BooksDL::BaseFile.new('mimetype', 'application/epub+zip')
         ]
       }
-
     end
 
     def perform
+      Dir.mkdir(DOWNLOAD_DIR) unless Dir.exist?(DOWNLOAD_DIR)
+
+      if already_downloaded?
+        puts "#{book_id} 已下載過，跳過。"
+        return
+      end
+
       job('取得 META-INF/container.xml') { fetch_container_file }
       job('取得 META-INF/encryption.xml') { fetch_encryption_file }
       job("取得 #{book[:root_file_path]} 檔案") { fetch_root_file }
@@ -78,10 +86,14 @@ module BooksDL
       end
     end
 
+    def already_downloaded?
+      Dir.glob("#{DOWNLOAD_DIR}/#{book_id}_*.epub").any?
+    end
+
     def build_epub
       title = book[:root_file].title
       files = book[:files]
-      filename = "#{book_id}_#{title}.epub"
+      filename = File.join(DOWNLOAD_DIR, "#{book_id}_#{title}.epub")
 
       ::Zip::File.open(filename, create: true) do |zipfile|
         files.each do |file|
