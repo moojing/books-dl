@@ -12,7 +12,24 @@ book_ids = [
   'E050054921_reflowable_normal'
 ]
 
-book_ids.each do |book_id|
-  downloader = BooksDL::Downloader.new(book_id)
+# 過濾已下載的書，避免不必要的登入流程
+pending_ids = book_ids.reject do |id|
+  Dir.glob("#{BooksDL::Downloader::DOWNLOAD_DIR}/#{id}_*.epub").any?
+end
+
+if pending_ids.empty?
+  puts "所有書籍都已下載完成。"
+  exit
+end
+
+shared_api = nil
+
+pending_ids.each do |book_id|
+  if shared_api
+    downloader = BooksDL::Downloader.new(book_id, api: shared_api)
+  else
+    downloader = BooksDL::Downloader.new(book_id)
+    shared_api = downloader.api
+  end
   downloader.perform
 end

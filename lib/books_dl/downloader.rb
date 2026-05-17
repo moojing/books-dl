@@ -6,9 +6,14 @@ module BooksDL
 
     attr_reader :api, :book, :book_id, :info
 
-    def initialize(book_id)
+    def initialize(book_id, api: nil)
       @book_id = book_id
-      @api = API.new(book_id)
+      if api
+        @api = api
+        @api.switch_book(book_id)
+      else
+        @api = API.new(book_id)
+      end
       @book = {
         root_file_path: nil,
         root_file: nil,

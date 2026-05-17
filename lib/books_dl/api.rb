@@ -25,7 +25,23 @@ module BooksDL
     def initialize(book_id)
       @book_id = book_id
       load_existed_cookies
-      @encoded_token ||= CGI.escape(info.download_token.to_s)
+      fetch_info
+    end
+
+    def switch_book(new_book_id)
+      @book_id = new_book_id
+      @info = nil
+      @encoded_token = nil
+
+      resp = get("#{BOOK_DL_URL}?book_uni_id=#{@book_id}&t=#{Time.now.to_i}")
+      parsed = JSON.parse(resp.body.to_s)
+
+      if parsed['error_code']
+        raise "BookDownLoadURL 失敗：#{parsed['error_message']}，請重新執行程式。"
+      end
+
+      @info = OpenStruct.new(parsed)
+      @encoded_token = CGI.escape(@info.download_token.to_s)
     end
 
     def fetch(path)
@@ -47,9 +63,18 @@ module BooksDL
       end
     end
 
+    def fetch_info
+      @info = fetch_book_info
+      @encoded_token = CGI.escape(@info.download_token.to_s)
+    end
+
     # return Struct of [:book_uni_id, :download_link, :download_token, :size, :encrypt_type]
     def info
-      @info ||= begin
+      @info
+    end
+
+    private def fetch_book_info
+      begin
         login
 
         data = {
@@ -89,7 +114,6 @@ module BooksDL
           save_cookie_to_file
           resp = get(OAUTH_URL)
           parsed_oauth = JSON.parse(resp.body.to_s)
-          puts "重試 OAUTH_URL response: #{parsed_oauth.inspect}"
         end
 
         login_uri = parsed_oauth.fetch('login_uri')
@@ -101,13 +125,10 @@ module BooksDL
         code = redirect_url&.split('&code=')&.last&.split('&')&.first
         code ||= redirect_url&.split('?code=')&.last&.split('&')&.first
         raise "無法取得 OAuth code，請確認網址含有 code= 參數。你貼的是：#{redirect_url}" if code.nil? || code.empty? || code.start_with?('http')
-        puts "OAuth code: #{code}"
         oauth_resp = get("#{OAUTH_ENDPOINT_URL}#{code}")
-        puts "MemberLogin response: #{oauth_resp.body.to_s}"
 
         resp = get("#{BOOK_DL_URL}?book_uni_id=#{book_id}&t=#{Time.now.to_i}")
         parsed = JSON.parse(resp.body.to_s)
-        puts "BookDownLoadURL response: #{parsed.inspect}"
 
         if parsed['error_code']
           raise "BookDownLoadURL 失敗：#{parsed['error_message']}，請重新執行程式。"
@@ -116,6 +137,8 @@ module BooksDL
         OpenStruct.new(parsed)
       end
     end
+
+    public
 
     def login
       return if logged?
