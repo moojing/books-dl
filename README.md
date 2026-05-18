@@ -4,7 +4,8 @@
 請先至網站購買電子書，並詳見 main.rb 的使用方法。
 
 新版v1.7需要安裝[chromedriver](https://developer.chrome.com/docs/chromedriver/downloads)
-並確保它與你的 Chrome 瀏覽器版本相符，放到 PATH 裡，才能使用selenium自動登入(現在是滑軌captcha)
+並確保它與你的 Chrome 瀏覽器版本相符，放到 PATH 裡，才能使用瀏覽器登入流程。
+目前不再支援舊的帳號密碼 + captcha fallback，請直接在瀏覽器中完成博客來當前的登入／QR code 驗證。
 安裝確認
 ```
 chromedriver -v

@@ -12,9 +12,7 @@ module BooksDL
     #
     # rubocop:disable Metrics/LineLength
     CART_URL = 'https://db.books.com.tw/shopping/cart_list.php'.freeze
-    LOGIN_HOST = 'https://cart.books.com.tw'.freeze
     LOGIN_PAGE_URL = "https://cart.books.com.tw/member/login?url=#{CART_URL}".freeze
-    LOGIN_ENDPOINT_URL = 'https://cart.books.com.tw/member/login_do/'.freeze
 
     DEVICE_REG_URL = 'https://appapi-ebook.books.com.tw/V1.7/CMSAPIApp/DeviceReg'.freeze
     OAUTH_URL = 'https://appapi-ebook.books.com.tw/V1.7/CMSAPIApp/LoginURL?type=&device_id=&redirect_uri=https%3A%2F%2Fviewer-ebook.books.com.tw%2Fviewer%2Flogin.html'.freeze
@@ -142,30 +140,13 @@ module BooksDL
 
     def login
       return if logged?
-      # 試著先用 Selenium 自動登入
+
       if login_with_slider_captcha
         puts "🎉 使用 Selenium 自動登入成功"
         return
       end
-      # 傳統方式 fallback
-      puts "⚠️ Selenium 失敗，改用人工輸入驗證碼模式"
-      username, password = get_account_from_stdin
-      login_page = get(LOGIN_PAGE_URL).body.to_s
-      captcha = get_captcha_from(login_page)
 
-      data = { form: { captcha: captcha, login_id: username, login_pswd: password } }
-      headers = {
-        'Host': 'cart.books.com.tw',
-        'Referer': 'https://cart.books.com.tw/member/login',
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'X-Requested-With': 'XMLHttpRequest'
-      }
-
-      post(LOGIN_ENDPOINT_URL, data, headers)
-      return if logged?
-
-      puts "#{'-' * 10} 登入失敗，請再試一次 #{'-' * 10}\n"
-      login
+      raise '瀏覽器登入失敗，無法繼續。請確認本機 Chrome / ChromeDriver 設定正確後重試。'
     end
 
     def logged?
@@ -188,13 +169,6 @@ module BooksDL
       end
     rescue StandardError
       @current_cookie = {}
-    end
-
-    def get_account_from_stdin
-        print('請輸入帳號：')
-        username = gets.chomp
-      password = STDIN.getpass('請輸入密碼:').chomp
-      [username, password]
     end
 
     def save_cookie_to_file
@@ -247,29 +221,6 @@ module BooksDL
 
     def build_headers(*args)
       args.reduce(default_headers, &:merge)
-    end
-
-    def get_user_input(label)
-      puts label
-
-      gets.chomp
-    end
-
-    def get_captcha_from(login_page)
-      doc = Nokogiri::HTML(login_page)
-      captcha_img_path = doc.at_css('#captcha_img > img').attr('src')
-      captcha_img_url = "#{LOGIN_HOST}#{captcha_img_path}"
-
-      img = get(captcha_img_url).body
-      File.open('captcha.png', 'wb+') { |file| file.write(img) }
-      begin
-        `open ./captcha.png`
-      rescue StandardError
-        puts '開啟失敗，請自行查看 captcha.png 檔案。'
-      end
-      puts '請輸入認證碼 (captcha.png，不分大小寫)：'
-
-      gets.chomp
     end
 
     def fetch_oauth_code_via_browser(login_uri)
