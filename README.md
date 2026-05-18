@@ -3,15 +3,9 @@
 ## 使用說明
 請先至網站購買電子書，並詳見 main.rb 的使用方法。
 
-新版v1.7需要安裝[chromedriver](https://developer.chrome.com/docs/chromedriver/downloads)
-並確保它與你的 Chrome 瀏覽器版本相符，放到 PATH 裡，才能使用瀏覽器登入流程。
-目前不再支援舊的帳號密碼 + captcha fallback，請直接在瀏覽器中完成博客來當前的登入／QR code 驗證。
-安裝確認
-```
-chromedriver -v
-```
-output:
-`ChromeDriver 135.0.7049.114 ...`
+新版 v1.7 走手動 OAuth 登入流程，不再使用 Selenium 或 chromedriver。
+程式會先向博客來電子書 API 取得 `login_uri`，請用你平常正在使用的瀏覽器開啟該網址並完成登入／QR code 驗證。
+登入成功後，瀏覽器會跳到 `viewer-ebook.books.com.tw/viewer/login.html?...&code=...`，請把那個完整網址貼回 terminal。
 
 > 下載時請不要用瀏覽器操作博客來網站功能，該站電子書區有防多重登入。
 

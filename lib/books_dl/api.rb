@@ -1,5 +1,3 @@
-require 'selenium-webdriver'
-
 module BooksDL
   class API
     attr_reader :current_cookie, :book_id, :encoded_token
@@ -11,9 +9,6 @@ module BooksDL
     # API ENDPOINTS
     #
     # rubocop:disable Metrics/LineLength
-    CART_URL = 'https://db.books.com.tw/shopping/cart_list.php'.freeze
-    LOGIN_PAGE_URL = "https://cart.books.com.tw/member/login?url=#{CART_URL}".freeze
-
     DEVICE_REG_URL = 'https://appapi-ebook.books.com.tw/V1.7/CMSAPIApp/DeviceReg'.freeze
     OAUTH_URL = 'https://appapi-ebook.books.com.tw/V1.7/CMSAPIApp/LoginURL?type=&device_id=&redirect_uri=https%3A%2F%2Fviewer-ebook.books.com.tw%2Fviewer%2Flogin.html'.freeze
     OAUTH_ENDPOINT_URL = 'https://appapi-ebook.books.com.tw/V1.7/CMSAPIApp/MemberLogin?code='.freeze
@@ -139,22 +134,7 @@ module BooksDL
     public
 
     def login
-      return if logged?
-
-      if login_with_slider_captcha
-        puts "🎉 使用 Selenium 自動登入成功"
-        return
-      end
-
-      raise '瀏覽器登入失敗，無法繼續。請確認本機 Chrome / ChromeDriver 設定正確後重試。'
-    end
-
-    def logged?
-      @logged = begin
-        response = get(CART_URL)
-
-        response.status == 200
-      end
+      nil
     end
 
     private
@@ -223,86 +203,5 @@ module BooksDL
       args.reduce(default_headers, &:merge)
     end
 
-    def fetch_oauth_code_via_browser(login_uri)
-      options = Selenium::WebDriver::Chrome::Options.new
-      # 隱藏 Selenium 特徵，避免被 Cloudflare 偵測
-      options.add_argument('--disable-blink-features=AutomationControlled')
-
-      driver = Selenium::WebDriver.for(:chrome, options: options)
-
-      # 注入 JS 隱藏 navigator.webdriver
-      driver.execute_cdp('Page.addScriptToEvaluateOnNewDocument',
-        source: "Object.defineProperty(navigator, 'webdriver', {get: () => undefined})"
-      )
-
-      begin
-        puts "開啟瀏覽器進行 OAuth 授權..."
-        driver.navigate.to(login_uri)
-
-        puts "請在瀏覽器中完成登入。"
-        puts "登入成功後，瀏覽器網址列會變成 viewer-ebook.books.com.tw 開頭的網址。"
-        puts "請把那個網址複製貼上到這裡，然後按 Enter："
-        redirect_url = STDIN.gets.chomp
-
-        code = redirect_url.split('&code=').last&.split('&')&.first
-        code ||= redirect_url.split('?code=').last&.split('&')&.first
-        raise '無法取得 OAuth code' if code.nil? || code.empty?
-
-        # 順便把瀏覽器的 cookie 存起來供後續使用
-        driver.manage.all_cookies.each do |c|
-          current_cookie[c[:name]] = c[:value]
-        end
-        File.write(COOKIE_FILE_NAME, JSON.pretty_generate(current_cookie))
-
-        code
-      ensure
-        driver.quit if driver
-      end
-    end
-
-    require 'selenium-webdriver'
-    def login_with_slider_captcha
-      browser_path = "/snap/chromium/current/usr/lib/chromium-browser/chrome"
-      driver_path  = "/snap/chromium/current/usr/lib/chromium-browser/chromedriver"
-      profile_dir  = Dir.mktmpdir("chromium-selenium-")
-
-      options = Selenium::WebDriver::Chrome::Options.new
-      options.binary = browser_path
-      options.add_argument("--user-data-dir=#{profile_dir}")
-      options.add_argument("--no-sandbox")
-      options.add_argument("--disable-setuid-sandbox")
-      options.add_argument("--disable-dev-shm-usage")
-      options.add_argument("--disable-gpu")
-      options.add_argument("--disable-software-rasterizer")
-      options.add_argument("--window-size=1280,800")
-      options.add_argument("--remote-debugging-pipe")
-
-      service = Selenium::WebDriver::Service.chrome(
-        path: driver_path,
-        args: ["--verbose", "--log-path=/tmp/chromedriver.log"]
-      )
-
-      driver = Selenium::WebDriver.for(:chrome, options: options, service: service)
-
-      begin
-        driver.navigate.to(LOGIN_PAGE_URL)
-        puts "請在瀏覽器中手動輸入帳號、密碼並完成滑塊驗證，完成後請按 Enter 繼續..."
-        STDIN.gets
-
-        @current_cookie ||= {}
-        driver.manage.all_cookies.each do |cookie|
-          @current_cookie[cookie[:name]] = cookie[:value]
-        end
-
-        File.write(COOKIE_FILE_NAME, JSON.pretty_generate(@current_cookie))
-        true
-      rescue => e
-        puts "[Selenium] 登入失敗：#{e.class} - #{e.message}"
-        false
-      ensure
-        driver.quit if driver
-        FileUtils.remove_entry(profile_dir) if Dir.exist?(profile_dir)
-      end
-    end
   end
 end

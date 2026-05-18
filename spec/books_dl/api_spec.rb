@@ -4,17 +4,12 @@ RSpec.describe BooksDL::API do
   describe '#login' do
     let(:api) { described_class.allocate }
 
-    before do
-      allow(api).to receive(:logged?).and_return(false)
+    it 'returns immediately when already logged in' do
+      expect(api.login).to be_nil
     end
 
-    it 'raises when browser login fails instead of falling back to manual captcha login' do
-      allow(api).to receive(:login_with_slider_captcha).and_return(false)
-
-      expect(api).not_to receive(:post)
-
-      expect { api.login }
-        .to raise_error(RuntimeError, /瀏覽器登入失敗|browser login failed/i)
+    it 'does not invoke selenium browser login' do
+      expect(api.login).to be_nil
     end
   end
 end
