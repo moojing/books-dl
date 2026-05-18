@@ -1,12 +1,71 @@
 # BooksDL
 
-## 使用說明
-請先至網站購買電子書，並詳見 main.rb 的使用方法。
+## 簡介
+`DL` 是 `download` 的縮寫。這個專案會透過博客來電子書 API 取得下載資訊，逐檔抓取內容，最後在本地重新組成 `.epub`。
 
+## 使用前提
+- 請先在博客來完成電子書購買。
+- 請使用 `.ruby-version` 指定的 Ruby 版本。
+- 第一次執行前先安裝依賴：
+
+```bash
+bundle install
+```
+
+## 如何指定要下載的書
+請直接修改 [main.rb](./main.rb) 裡的 `book_ids`：
+
+```ruby
+book_ids = [
+  'E050127971_reflowable_normal',
+  'E050054921_reflowable_normal'
+]
+```
+
+`book_id` 的取得方式：
+- 打開你要下載的書的閱讀頁面
+- 從網址列找 `book_uni_id=...`
+- 例如：
+
+```text
+https://viewer-ebook.books.com.tw/viewer/epub/web/?book_uni_id=E050096232_reflowable_normal&ran=97991701
+```
+
+這裡的 `E050096232_reflowable_normal` 就是 `book_id`
+
+## 登入流程
 新版 v1.7 走手動 OAuth 登入流程，不再使用 Selenium 或 chromedriver。
-程式會先向博客來電子書 API 取得 `login_uri`，請用你平常正在使用的瀏覽器開啟該網址並完成登入／QR code 驗證。
-登入成功後，瀏覽器會跳到 `viewer-ebook.books.com.tw/viewer/login.html?...&code=...`，請把那個完整網址貼回 terminal。
 
+程式流程如下：
+1. 呼叫博客來電子書 API 取得 `login_uri`
+2. 在 terminal 顯示一個網址給你
+3. 請用你平常正在使用的瀏覽器開啟該網址並完成登入／QR code 驗證
+4. 登入成功後，瀏覽器會跳到：
+
+```text
+https://viewer-ebook.books.com.tw/viewer/login.html?type=NormalReader&code=...
+```
+
+5. 把這個完整跳轉網址貼回 terminal
+6. 程式會從網址中取出 `code`
+7. 用這個 `code` 去換 `CmsToken`
+8. 再呼叫 `BookDownLoadURL` 取得 `download_link` 和 `DownloadToken`
+
+## cookie.json 是做什麼的
+`cookie.json` 是這個專案的 cookie / token 快取檔。
+
+它通常會保存：
+- `CmsToken`
+- `DownloadToken`
+- `redirect_uri`
+- `normal_redirect_uri`
+
+注意：
+- 你貼回來網址裡的 `code=...` 是一次性的 OAuth 授權碼
+- `cookie.json` 裡存的是程式拿 `code` 去跟後端兌換後，伺服器回傳的 cookie / token
+- 所以 `cookie.json` 裡的值本來就不會跟網址裡的 `code` 一樣
+
+## 下載節奏
 可用環境變數調整下載節奏：
 - `BOOKS_DL_FILE_DELAY_SECONDS`：每個檔案下載之間的間隔秒數，預設 `1`
 - `BOOKS_DL_BOOK_DELAY_SECONDS`：每本書下載完成到下一本開始前的間隔秒數，預設 `5`
@@ -18,7 +77,45 @@ BOOKS_DL_BOOK_DELAY_SECONDS=5 \
 bundle exec ruby main.rb
 ```
 
+目前程式不會在同一檔案下載中做額外 retry；如果後端不穩，建議先保守使用預設值。
+
+## 輸出位置
+下載完成後，檔案會輸出到：
+
+```text
+downloads/<book_id>_<title>.epub
+```
+
+## 常見狀況
+### `BookDownLoadURL 失敗：內部錯誤`
+這通常不是 `code` 貼錯，而是博客來後端偶發性失敗，或 `MemberLogin` 剛換完 token 後狀態還沒穩定。
+
+常見處理方式：
+- 重新執行一次
+- 保留較保守的下載間隔
+- 下載時不要同時在瀏覽器操作博客來電子書相關頁面
+
+### 下載時不要操作博客來電子書頁面
+博客來對 web 閱讀有單一瀏覽器登入限制。下載時若同時在瀏覽器操作電子書櫃或閱讀頁，可能影響 token / session 狀態。
+
 > 下載時請不要用瀏覽器操作博客來網站功能，該站電子書區有防多重登入。
+
+## 執行範例
+```bash
+bundle exec ruby main.rb
+```
+
+執行後會看到類似：
+
+```text
+註冊 Fake device 中...
+透過 OAuth 取得 CmsToken...
+
+請在 Chrome 瀏覽器中開啟以下網址：
+https://cart.books.com.tw/oauth?client_id=cms&redirect_uri=...
+```
+
+接著依照提示把最後跳轉到 `login.html?...&code=...` 的完整網址貼回 terminal 即可。
 
 ## [博客來電子書服務條款](https://www.books.com.tw/web/sys_qalist/qa_1_80#M201105_0_getQaQuestion_P00ce00020006_42)
 
