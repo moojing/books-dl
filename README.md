@@ -7,6 +7,17 @@
 程式會先向博客來電子書 API 取得 `login_uri`，請用你平常正在使用的瀏覽器開啟該網址並完成登入／QR code 驗證。
 登入成功後，瀏覽器會跳到 `viewer-ebook.books.com.tw/viewer/login.html?...&code=...`，請把那個完整網址貼回 terminal。
 
+可用環境變數調整下載節奏：
+- `BOOKS_DL_FILE_DELAY_SECONDS`：每個檔案下載之間的間隔秒數，預設 `1`
+- `BOOKS_DL_BOOK_DELAY_SECONDS`：每本書下載完成到下一本開始前的間隔秒數，預設 `5`
+
+範例：
+```bash
+BOOKS_DL_FILE_DELAY_SECONDS=1 \
+BOOKS_DL_BOOK_DELAY_SECONDS=5 \
+bundle exec ruby main.rb
+```
+
 > 下載時請不要用瀏覽器操作博客來網站功能，該站電子書區有防多重登入。
 
 ## [博客來電子書服務條款](https://www.books.com.tw/web/sys_qalist/qa_1_80#M201105_0_getQaQuestion_P00ce00020006_42)

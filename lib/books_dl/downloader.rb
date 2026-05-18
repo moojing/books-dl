@@ -88,7 +88,21 @@ module BooksDL
         content = api.fetch(path)
 
         book[:files] << BaseFile.new(path, content)
+        sleep(file_delay_seconds) if index < total - 1
       end
+    end
+
+    def file_delay_seconds
+      env_seconds('BOOKS_DL_FILE_DELAY_SECONDS', default: 1.0)
+    end
+
+    def env_seconds(key, default:)
+      raw = ENV[key]
+      return default if raw.nil? || raw.empty?
+
+      Float(raw)
+    rescue ArgumentError
+      default
     end
 
     def already_downloaded?

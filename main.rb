@@ -24,7 +24,18 @@ end
 
 shared_api = nil
 
-pending_ids.each do |book_id|
+def env_seconds(key, default:)
+  raw = ENV[key]
+  return default if raw.nil? || raw.empty?
+
+  Float(raw)
+rescue ArgumentError
+  default
+end
+
+book_delay_seconds = env_seconds('BOOKS_DL_BOOK_DELAY_SECONDS', default: 5.0)
+
+pending_ids.each_with_index do |book_id, index|
   if shared_api
     downloader = BooksDL::Downloader.new(book_id, api: shared_api)
   else
@@ -32,4 +43,5 @@ pending_ids.each do |book_id|
     shared_api = downloader.api
   end
   downloader.perform
+  sleep(book_delay_seconds) if index < pending_ids.size - 1
 end
