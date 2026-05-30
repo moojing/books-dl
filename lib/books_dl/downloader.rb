@@ -110,15 +110,36 @@ module BooksDL
     end
 
     def build_epub
-      title = book[:root_file].title
+      label = export_label
+      title = book[:root_file].export_title(label)
       files = book[:files]
-      filename = File.join(DOWNLOAD_DIR, "#{book_id}_#{title}.epub")
+      filename = File.join(DOWNLOAD_DIR, "#{book_id}_#{title}#{output_extension}")
 
       ::Zip::File.open(filename, create: true) do |zipfile|
         files.each do |file|
-          zipfile.get_output_stream(file.path) { |zip| zip.write(file.content) }
+          options = if file.path == 'mimetype'
+                      { compression_method: ::Zip::Entry::STORED }
+                    else
+                      {}
+                    end
+
+          file_content = if file.equal?(book[:root_file])
+                           book[:root_file].export_content(label)
+                         else
+                           file.content
+                         end
+
+          zipfile.get_output_stream(file.path, **options) { |zip| zip.write(file_content) }
         end
       end
+    end
+
+    def export_label
+      ENV['BOOKS_DL_EPUB_LABEL']
+    end
+
+    def output_extension
+      ENV['BOOKS_DL_KOBO_KEPUB'] == '1' ? '.kepub.epub' : '.epub'
     end
   end
 end

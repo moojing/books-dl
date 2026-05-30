@@ -109,7 +109,7 @@ module BooksDL
           parsed_oauth = JSON.parse(resp.body.to_s)
         end
 
-        login_uri = parsed_oauth.fetch('login_uri')
+        login_uri = extract_login_uri(parsed_oauth)
         puts "\n請在 Chrome 瀏覽器中開啟以下網址："
         puts login_uri
         puts "\n⚠️  網址會自動跳轉到 login.html?...&code=XXXXX 的網址"
@@ -201,6 +201,21 @@ module BooksDL
 
     def build_headers(*args)
       args.reduce(default_headers, &:merge)
+    end
+
+    def extract_login_uri(parsed_oauth)
+      login_uri = parsed_oauth['login_uri']
+      return login_uri unless login_uri.nil? || login_uri.empty?
+
+      error_code = parsed_oauth['error_code']
+      error_message = parsed_oauth['error_message']
+      response_body = JSON.generate(parsed_oauth)
+
+      if error_code || error_message
+        raise "取得 OAuth login URI 失敗：#{error_code} #{error_message}。原始回應：#{response_body}".strip
+      end
+
+      raise "取得 OAuth login URI 失敗：API 回應缺少 login_uri。原始回應：#{response_body}"
     end
 
   end
