@@ -112,7 +112,7 @@ module BooksDL
     def build_epub
       label = export_label
       title = book[:root_file].export_title(label)
-      files = book[:files]
+      files = kobo_kepub? ? KepubConverter.new(book[:files], book[:root_file]).convert : book[:files]
       filename = File.join(DOWNLOAD_DIR, "#{book_id}_#{title}#{output_extension}")
 
       ::Zip::File.open(filename, create: true) do |zipfile|
@@ -138,8 +138,12 @@ module BooksDL
       ENV['BOOKS_DL_EPUB_LABEL']
     end
 
+    def kobo_kepub?
+      ENV['BOOKS_DL_KOBO_KEPUB'] == '1'
+    end
+
     def output_extension
-      ENV['BOOKS_DL_KOBO_KEPUB'] == '1' ? '.kepub.epub' : '.epub'
+      kobo_kepub? ? '.kepub.epub' : '.epub'
     end
   end
 end

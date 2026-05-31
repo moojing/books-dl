@@ -66,6 +66,7 @@ RSpec.describe BooksDL::Downloader do
       downloader.instance_variable_set(:@book, { root_file: root_file, files: files })
       allow(ENV).to receive(:[]).and_call_original
       allow(ENV).to receive(:[]).with('BOOKS_DL_EPUB_LABEL').and_return(nil)
+      allow(ENV).to receive(:[]).with('BOOKS_DL_KOBO_KEPUB').and_return(nil)
     end
 
     after do
@@ -101,12 +102,30 @@ RSpec.describe BooksDL::Downloader do
 
     it 'writes a kepub filename when Kobo mode is enabled' do
       allow(ENV).to receive(:[]).with('BOOKS_DL_KOBO_KEPUB').and_return('1')
+      allow(BooksDL::KepubConverter).to receive(:new).and_return(
+        instance_double(BooksDL::KepubConverter, convert: files)
+      )
 
       downloader.send(:build_epub)
 
       kepub_path = File.join(tmpdir, 'book-123_sample-book.kepub.epub')
 
       expect(File.exist?(kepub_path)).to be(true)
+    end
+
+    it 'runs kepub conversion when Kobo mode is enabled' do
+      allow(ENV).to receive(:[]).with('BOOKS_DL_KOBO_KEPUB').and_return('1')
+
+      converter = instance_double(BooksDL::KepubConverter, convert: files)
+      expect(BooksDL::KepubConverter).to receive(:new).with(files, root_file).and_return(converter)
+
+      downloader.send(:build_epub)
+    end
+
+    it 'skips kepub conversion when Kobo mode is disabled' do
+      expect(BooksDL::KepubConverter).not_to receive(:new)
+
+      downloader.send(:build_epub)
     end
   end
 end
